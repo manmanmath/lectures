@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>대학 수학 강의</title>
+<title>만만한 수학 자료실</title>
 
 <!-- PDF.js (PDF를 웹 안에서 렌더링하기 위한 라이브러리) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -133,8 +133,8 @@
 <!-- ===================== 로그인 화면 ===================== -->
 <div id="login-stage" class="center-stage">
   <div class="card">
-    <h2>대학 수학 강의</h2>
-    <p class="sub">강의를 보려면 비밀번호를 입력하세요.</p>
+    <h2>만만한 수학 자료실</h2>
+    <p class="sub">회원 비밀번호를 입력하세요. 등급에 따라 보이는 강의가 다릅니다.</p>
     <form id="login-form">
       <div class="field">
         <label for="login-pw">비밀번호</label>
@@ -151,27 +151,31 @@
 <div id="admin-stage" class="center-stage hidden">
   <div class="card">
     <h2>관리자 설정</h2>
-    <p class="sub">비밀번호를 변경합니다. 변경된 비밀번호는 이 브라우저에 저장됩니다.</p>
+    <p class="sub">등급별 비밀번호를 설정합니다. 변경한 값은 이 브라우저에 저장됩니다.</p>
 
-    <!-- 관리자 인증 -->
+    <!-- 관리자 인증 (골드플러스 비밀번호로 확인) -->
     <div id="admin-auth">
       <div class="field">
-        <label for="admin-current">현재 비밀번호 확인</label>
-        <input type="password" id="admin-current" autocomplete="off" placeholder="현재 비밀번호" />
+        <label for="admin-current">관리자 비밀번호 (골드플러스) 확인</label>
+        <input type="password" id="admin-current" autocomplete="off" placeholder="골드플러스 비밀번호" />
       </div>
       <div class="errmsg" id="admin-auth-err"></div>
       <button type="button" class="btn full" id="admin-auth-btn">확인</button>
     </div>
 
-    <!-- 비밀번호 변경 -->
+    <!-- 등급별 비밀번호 변경 -->
     <div id="admin-change" class="hidden">
       <div class="field">
-        <label for="admin-new">새 비밀번호</label>
-        <input type="password" id="admin-new" autocomplete="off" placeholder="새 비밀번호" />
+        <label for="pw-silver">실버 회원 비밀번호</label>
+        <input type="text" id="pw-silver" autocomplete="off" placeholder="실버 비밀번호" />
       </div>
       <div class="field">
-        <label for="admin-new2">새 비밀번호 확인</label>
-        <input type="password" id="admin-new2" autocomplete="off" placeholder="새 비밀번호 다시 입력" />
+        <label for="pw-gold">골드 회원 비밀번호</label>
+        <input type="text" id="pw-gold" autocomplete="off" placeholder="골드 비밀번호" />
+      </div>
+      <div class="field">
+        <label for="pw-goldplus">골드플러스 회원 비밀번호</label>
+        <input type="text" id="pw-goldplus" autocomplete="off" placeholder="골드플러스 비밀번호" />
       </div>
       <div class="errmsg" id="admin-change-err"></div>
       <div class="okmsg" id="admin-change-ok"></div>
@@ -188,8 +192,9 @@
 <!-- ===================== 메인(강의 목록 / 절 목록) ===================== -->
 <div id="main-stage" class="hidden">
   <header class="topbar">
-    <h1 id="brand">대학 수학 강의</h1>
+    <h1 id="brand">만만한 수학 자료실</h1>
     <div class="spacer"></div>
+    <span id="tier-badge" style="font-size:13px; color:var(--accent); font-weight:700; margin-right:10px;"></span>
     <button class="btn ghost small" id="logout-btn">로그아웃</button>
   </header>
   <div class="wrap">
@@ -222,38 +227,31 @@
 const CONFIG = {
 
   // 1) 사이트 제목
-  siteTitle: "대학 수학 강의",
+  siteTitle: "만만한 수학 자료실",
 
-  // 2) 기본 비밀번호  ← 여기를 원하는 비밀번호로 바꾸세요.
+  // 2) 회원 등급별 비밀번호  ← 각 등급의 password 를 원하는 값으로 바꾸세요.
+  //    level 숫자가 클수록 더 많은 강의를 볼 수 있습니다.
   //    (관리자 페이지에서 바꾸면 그 값이 우선 적용되며, 아래는 기본값입니다.)
-  defaultPassword: "math1234",
+  tiers: {
+    silver:   { label: "실버 회원",      level: 1, password: "silver123" },
+    gold:     { label: "골드 회원",      level: 2, password: "gold123" },
+    goldplus: { label: "골드플러스 회원", level: 3, password: "goldplus123" }
+  },
 
-  // 3) 강의 목록.
-  //    - 강의를 추가하려면 courses 배열에 { } 블록을 하나 더 넣으세요.
-  //    - 각 절(section)의 file 값은 이 HTML 파일이 있는 폴더 기준 PDF 경로입니다.
-  //      예: pdfs/calc1/1-1.pdf  → 같은 폴더 안 pdfs/calc1/ 폴더의 1-1.pdf
+  // 3) GitHub 저장소 정보 (PDF 목록 자동 감지에 사용)
+  //    - owner/repo 를 비워두면 GitHub Pages 주소에서 자동으로 알아냅니다. (보통 그대로 두세요)
+  //    - localhost 에서 테스트하려면 owner/repo 를 직접 채워 넣으세요.
+  github: { owner: "", repo: "", branch: "main" },
+
+  // 4) 강의 목록.
+  //    - id 는 pdfs 폴더 안 "하위 폴더 이름"입니다. (예: id "calc1" → pdfs/calc1/)
+  //      그 폴더의 PDF 들이 자동으로 절(슬라이드) 목록이 됩니다. PDF를 추가/삭제하면 목록도 바뀝니다.
+  //    - 절 제목 = 파일명 (확장자와 끝의 (실버)/(골드) 표시는 자동 제거).
+  //    - 공개 등급은 파일명 끝으로 결정: (실버)→전체공개, (골드)→골드 이상, 표시없음→골드플러스 전용.
+  //    - 강의 추가: 아래에 { id, title, subtitle } 를 더 넣고 pdfs 안에 같은 이름 폴더를 만드세요.
   courses: [
-    {
-      id: "calc1",
-      title: "스튜어트 미분적분학 1",
-      subtitle: "Stewart Calculus — 단일변수",
-      sections: [
-        { title: "1.1 함수와 그 표현",   file: "pdfs/calc1/1.1 (eng) Functions and Their Representations.pdf" },
-        { title: "1.2 필수 함수들의 분류", file: "pdfs/calc1/1.2 (eng) A Catalog of Essential Functions.pdf" }
-        // ── 절을 추가하려면 위 } 뒤에 콤마(,)를 찍고 같은 형식으로 추가하세요. 예:
-        // ,{ title: "1.3 기존 함수로 새 함수 만들기", file: "pdfs/calc1/1.3 ....pdf" }
-      ]
-    }
-
-    // ── 강의 추가 예시 (필요하면 위 } 뒤에 콤마 찍고 아래처럼 추가) ──
-    // ,{
-    //   id: "calc2",
-    //   title: "스튜어트 미분적분학 2",
-    //   subtitle: "Stewart Calculus — 급수·다변수",
-    //   sections: [
-    //     { title: "11장. 무한수열과 급수", file: "pdfs/calc2/ch11.pdf" }
-    //   ]
-    // }
+    { id: "calc1", title: "스튜어트 미분적분학 1", subtitle: "Stewart Calculus — 단일변수" }
+    // ,{ id: "calc2", title: "스튜어트 미분적분학 2", subtitle: "Stewart Calculus — 급수·다변수" }
   ]
 };
 /* ============================================================
@@ -266,13 +264,102 @@ const CONFIG = {
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-/* ---------- 비밀번호 관리 ---------- */
-const PW_KEY = "collegeMath_password";
-function getPassword(){
-  return localStorage.getItem(PW_KEY) || CONFIG.defaultPassword;
+/* ---------- 회원 등급 / 비밀번호 관리 ---------- */
+const TIER_ORDER = ["silver", "gold", "goldplus"];   // 낮은 등급 → 높은 등급
+let currentTierKey = null;                            // 로그인한 회원 등급
+
+function getTierPassword(key){
+  return localStorage.getItem("pw_" + key) || CONFIG.tiers[key].password;
 }
-function setPassword(pw){ localStorage.setItem(PW_KEY, pw); }
-function resetPassword(){ localStorage.removeItem(PW_KEY); }
+function setTierPassword(key, pw){ localStorage.setItem("pw_" + key, pw); }
+function resetTierPasswords(){ TIER_ORDER.forEach(k => localStorage.removeItem("pw_" + k)); }
+
+// 입력한 비밀번호가 어느 등급인지 찾는다(같은 비번이면 더 높은 등급 적용). 없으면 null.
+function detectTier(input){
+  let found = null;
+  TIER_ORDER.forEach(k => {
+    if(input === getTierPassword(k)){
+      if(found === null || CONFIG.tiers[k].level > CONFIG.tiers[found].level) found = k;
+    }
+  });
+  return found;
+}
+function currentLevel(){ return currentTierKey ? CONFIG.tiers[currentTierKey].level : 0; }
+
+// PDF 파일명 끝의 표시로 공개 등급(최소 레벨)을 결정한다.
+//   (실버)=1, (골드)=2, 표시 없음=3(골드플러스 전용)
+function tierFromFile(file){
+  const base = String(file).replace(/\.pdf$/i, "").trim();
+  if(/\(실버\)$/.test(base)) return 1;
+  if(/\(골드\)$/.test(base)) return 2;
+  return 3;
+}
+// 절의 최소 등급: minTier 가 명시돼 있으면 그것을, 없으면 파일명으로 판단.
+function sectionMinTier(sec){ return sec.minTier || tierFromFile(sec.file); }
+
+// 등급 레벨 → 안내 문구
+function accessLabel(level){
+  if(level <= 1) return "전체 공개";
+  if(level === 2) return "골드 회원 이상";
+  return "골드플러스 전용";
+}
+
+// 현재 등급이 이 절을 볼 수 있는지
+function sectionVisible(sec){ return currentLevel() >= sectionMinTier(sec); }
+function visibleSections(course){
+  const secs = courseCache[course.id] || [];
+  return secs.filter(sectionVisible);
+}
+
+/* ---------- GitHub 자동 목록 (pdfs 폴더의 PDF를 자동으로 읽어 옴) ---------- */
+const courseCache = {};   // courseId -> sections 배열 (캐시). null = 불러오기 실패
+
+// GitHub 저장소 정보. CONFIG.github 가 비어 있으면 현재 주소(GitHub Pages)에서 자동 추론.
+function githubRepoInfo(){
+  let owner  = (CONFIG.github && CONFIG.github.owner)  || "";
+  let repo   = (CONFIG.github && CONFIG.github.repo)   || "";
+  let branch = (CONFIG.github && CONFIG.github.branch) || "main";
+  if(!owner || !repo){
+    const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+    if(m){
+      owner = owner || m[1];
+      const seg = location.pathname.split("/").filter(Boolean);
+      repo = repo || (seg.length ? seg[0] : (m[1] + ".github.io"));
+    }
+  }
+  return { owner, repo, branch };
+}
+
+// 파일명 → 절 제목 (확장자와 끝의 (실버)/(골드) 표시 제거)
+function titleFromFile(name){
+  return String(name)
+    .replace(/\.pdf$/i, "")
+    .replace(/\s*\((실버|골드)\)\s*$/, "")
+    .trim();
+}
+
+// 1.2 < 1.10 처럼 숫자를 고려한 정렬
+function naturalCompare(a, b){
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+// 한 강의 폴더(pdfs/<id>)의 PDF 목록을 GitHub API로 읽어 sections 배열을 만든다.
+async function loadCourseSections(course){
+  if((course.id in courseCache) && courseCache[course.id] !== null) return courseCache[course.id];
+  const { owner, repo, branch } = githubRepoInfo();
+  if(!owner || !repo) throw new Error("GitHub 저장소 정보를 알 수 없습니다.");
+  const url = "https://api.github.com/repos/" + owner + "/" + repo +
+              "/contents/pdfs/" + encodeURIComponent(course.id) + "?ref=" + encodeURIComponent(branch);
+  const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" } });
+  if(!res.ok) throw new Error("목록 조회 실패 (" + res.status + ")");
+  const items = await res.json();
+  const sections = (Array.isArray(items) ? items : [])
+    .filter(it => it.type === "file" && /\.pdf$/i.test(it.name))
+    .sort((a, b) => naturalCompare(a.name, b.name))
+    .map(it => ({ title: titleFromFile(it.name), file: "pdfs/" + course.id + "/" + it.name }));
+  courseCache[course.id] = sections;
+  return sections;
+}
 
 /* ---------- 화면 요소 ---------- */
 const loginStage   = document.getElementById("login-stage");
@@ -300,7 +387,9 @@ const loginErr  = document.getElementById("login-err");
 
 loginForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  if(loginPw.value === getPassword()){
+  const key = detectTier(loginPw.value);
+  if(key){
+    currentTierKey = key;
     loginErr.textContent = "";
     loginPw.value = "";
     enterSite();
@@ -319,43 +408,54 @@ const adminAuth     = document.getElementById("admin-auth");
 const adminChange   = document.getElementById("admin-change");
 const adminCurrent  = document.getElementById("admin-current");
 const adminAuthErr  = document.getElementById("admin-auth-err");
-const adminNew      = document.getElementById("admin-new");
-const adminNew2     = document.getElementById("admin-new2");
+const pwSilver      = document.getElementById("pw-silver");
+const pwGold        = document.getElementById("pw-gold");
+const pwGoldplus    = document.getElementById("pw-goldplus");
 const adminChangeErr= document.getElementById("admin-change-err");
 const adminChangeOk = document.getElementById("admin-change-ok");
 
 function resetAdminUI(){
   adminAuth.classList.remove("hidden");
   adminChange.classList.add("hidden");
-  adminCurrent.value = ""; adminNew.value = ""; adminNew2.value = "";
+  adminCurrent.value = "";
   adminAuthErr.textContent = ""; adminChangeErr.textContent = ""; adminChangeOk.textContent = "";
 }
 
+function fillTierFields(){
+  pwSilver.value   = getTierPassword("silver");
+  pwGold.value     = getTierPassword("gold");
+  pwGoldplus.value = getTierPassword("goldplus");
+}
+
 document.getElementById("admin-auth-btn").addEventListener("click", () => {
-  if(adminCurrent.value === getPassword()){
+  if(adminCurrent.value === getTierPassword("goldplus")){
     adminAuth.classList.add("hidden");
     adminChange.classList.remove("hidden");
     adminAuthErr.textContent = "";
+    fillTierFields();
   } else {
-    adminAuthErr.textContent = "현재 비밀번호가 올바르지 않습니다.";
+    adminAuthErr.textContent = "골드플러스 비밀번호가 올바르지 않습니다.";
   }
 });
 
 document.getElementById("admin-save-btn").addEventListener("click", () => {
   adminChangeErr.textContent = ""; adminChangeOk.textContent = "";
-  if(adminNew.value.length < 4){
-    adminChangeErr.textContent = "비밀번호는 4자 이상으로 설정하세요."; return;
+  const vals = { silver: pwSilver.value.trim(), gold: pwGold.value.trim(), goldplus: pwGoldplus.value.trim() };
+  for(const k of TIER_ORDER){
+    if(vals[k].length < 4){
+      adminChangeErr.textContent = "모든 등급의 비밀번호를 4자 이상으로 설정하세요."; return;
+    }
   }
-  if(adminNew.value !== adminNew2.value){
-    adminChangeErr.textContent = "두 비밀번호가 일치하지 않습니다."; return;
+  if(new Set([vals.silver, vals.gold, vals.goldplus]).size < 3){
+    adminChangeErr.textContent = "세 등급의 비밀번호는 서로 달라야 합니다."; return;
   }
-  setPassword(adminNew.value);
-  adminChangeOk.textContent = "비밀번호가 변경되었습니다.";
-  adminNew.value = ""; adminNew2.value = "";
+  TIER_ORDER.forEach(k => setTierPassword(k, vals[k]));
+  adminChangeOk.textContent = "비밀번호가 저장되었습니다.";
 });
 
 document.getElementById("admin-reset-btn").addEventListener("click", () => {
-  resetPassword();
+  resetTierPasswords();
+  fillTierFields();
   adminChangeOk.textContent = "코드의 기본 비밀번호로 되돌렸습니다.";
   adminChangeErr.textContent = "";
 });
@@ -364,41 +464,74 @@ document.getElementById("back-login").addEventListener("click", () => show("logi
 
 /* ---------- 사이트 입장 / 강의 목록 ---------- */
 function enterSite(){
+  document.getElementById("tier-badge").textContent = CONFIG.tiers[currentTierKey].label;
   show("main");
   renderCourses();
 }
 
 document.getElementById("logout-btn").addEventListener("click", () => show("login"));
 
-function renderCourses(){
+async function renderCourses(){
   sectionList.classList.add("hidden");
   courseList.classList.remove("hidden");
   crumbs.innerHTML = "강의 목록";
+  courseList.innerHTML = '<div class="note">강의 목록을 불러오는 중…</div>';
+
+  // 모든 강의 폴더의 PDF 목록을 병렬로 읽어 온다.
+  await Promise.all(CONFIG.courses.map(c =>
+    loadCourseSections(c).catch(err => { console.error(err); courseCache[c.id] = null; })
+  ));
+
   courseList.innerHTML = '<div class="grid"></div>';
   const grid = courseList.querySelector(".grid");
+  let shown = 0, failed = false;
   CONFIG.courses.forEach(course => {
+    if(courseCache[course.id] === null){ failed = true; return; }
+    const vs = visibleSections(course);
+    if(vs.length === 0) return;
+    shown++;
     const b = document.createElement("button");
     b.className = "tile";
-    b.innerHTML = `<span class="t-title">${escapeHtml(course.title)}</span>
-                   <span class="t-sub">${escapeHtml(course.subtitle || "")} · ${course.sections.length}개 강의</span>`;
+    b.innerHTML = '<span class="t-title">' + escapeHtml(course.title) + '</span>' +
+                  '<span class="t-sub">' + escapeHtml(course.subtitle || "") + ' · ' + vs.length + '개 강의</span>';
     b.addEventListener("click", () => renderSections(course));
     grid.appendChild(b);
   });
+  if(shown === 0){
+    courseList.innerHTML = failed
+      ? '<div class="note">강의 목록을 불러오지 못했습니다. PDF가 GitHub에 올라가 있는지, 저장소가 공개(Public)인지 확인하거나 잠시 후 다시 시도해 주세요. (localhost에서 열면 목록이 안 보일 수 있어요 — GitHub 주소로 확인하세요.)</div>'
+      : '<div class="note">현재 등급에서 볼 수 있는 강의가 아직 없습니다.</div>';
+  }
 }
 
-function renderSections(course){
+async function renderSections(course){
   courseList.classList.add("hidden");
   sectionList.classList.remove("hidden");
-  crumbs.innerHTML = `<span id="cb-home">강의 목록</span><span class="sep">›</span>${escapeHtml(course.title)}`;
+  crumbs.innerHTML = '<span id="cb-home">강의 목록</span><span class="sep">›</span>' + escapeHtml(course.title);
   document.getElementById("cb-home").addEventListener("click", renderCourses);
 
-  sectionList.innerHTML = `<div class="section-title">${escapeHtml(course.title)}</div><div class="grid"></div>`;
+  sectionList.innerHTML = '<div class="section-title">' + escapeHtml(course.title) + '</div><div class="note">불러오는 중…</div>';
+  if(!(course.id in courseCache) || courseCache[course.id] === null){
+    try { await loadCourseSections(course); }
+    catch(e){ console.error(e); courseCache[course.id] = null; }
+  }
+
+  sectionList.innerHTML = '<div class="section-title">' + escapeHtml(course.title) + '</div><div class="grid"></div>';
   const grid = sectionList.querySelector(".grid");
-  course.sections.forEach(sec => {
+  if(courseCache[course.id] === null){
+    sectionList.insertAdjacentHTML("beforeend", '<div class="note">목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>');
+    return;
+  }
+  const vs = visibleSections(course);
+  if(vs.length === 0){
+    sectionList.insertAdjacentHTML("beforeend", '<div class="note">이 강의에서 현재 등급으로 볼 수 있는 슬라이드가 없습니다.</div>');
+    return;
+  }
+  vs.forEach(sec => {
     const b = document.createElement("button");
     b.className = "tile";
-    b.innerHTML = `<span class="t-title">${escapeHtml(sec.title)}</span>
-                   <span class="t-sub">슬라이드 보기 →</span>`;
+    b.innerHTML = '<span class="t-title">' + escapeHtml(sec.title) + '</span>' +
+                  '<span class="t-sub">' + accessLabel(sectionMinTier(sec)) + ' · 슬라이드 보기 →</span>';
     b.addEventListener("click", () => openViewer(course, sec));
     grid.appendChild(b);
   });
