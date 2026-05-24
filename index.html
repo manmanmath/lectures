@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>대학 수학 강의</title>
+
+<!-- PDF.js (PDF를 웹 안에서 렌더링하기 위한 라이브러리) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0f172a;
+    --panel:#1e293b;
+    --panel2:#273449;
+    --accent:#3b82f6;
+    --accent2:#2563eb;
+    --text:#e2e8f0;
+    --muted:#94a3b8;
+    --border:#334155;
+    --danger:#ef4444;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:960px; margin:0 auto; padding:24px 20px 80px; }
+  header.topbar{
+    position:sticky; top:0; z-index:30;
+    background:rgba(15,23,42,.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:12px;
+    padding:14px 20px;
+  }
+  header.topbar h1{ font-size:18px; margin:0; font-weight:700; }
+  header.topbar .spacer{ flex:1; }
+  .crumbs{ font-size:13px; color:var(--muted); margin:6px 0 22px; }
+  .crumbs span{ cursor:pointer; }
+  .crumbs span:hover{ color:var(--text); text-decoration:underline; }
+  .crumbs .sep{ margin:0 6px; cursor:default; }
+
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{
+    background:var(--accent); color:#fff; border:none;
+    padding:10px 16px; border-radius:10px; font-size:14px; font-weight:600;
+    transition:background .15s;
+  }
+  .btn:hover{ background:var(--accent2); }
+  .btn.ghost{ background:transparent; color:var(--muted); border:1px solid var(--border); }
+  .btn.ghost:hover{ color:var(--text); background:var(--panel2); }
+  .btn.small{ padding:7px 12px; font-size:13px; }
+
+  /* 로그인 / 관리자 카드 */
+  .center-stage{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .card{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:18px; padding:34px 30px; width:100%; max-width:420px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+  .card h2{ margin:0 0 6px; font-size:22px; }
+  .card p.sub{ margin:0 0 22px; color:var(--muted); font-size:14px; line-height:1.5; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:13px; color:var(--muted); margin-bottom:7px; }
+  .field input{
+    width:100%; padding:12px 14px; border-radius:10px;
+    background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    font-size:15px; outline:none;
+  }
+  .field input:focus{ border-color:var(--accent); }
+  .full{ width:100%; }
+  .errmsg{ color:var(--danger); font-size:13px; min-height:18px; margin-top:-6px; margin-bottom:10px; }
+  .okmsg{ color:#22c55e; font-size:13px; min-height:18px; margin-top:-6px; margin-bottom:10px; }
+  .linkrow{ text-align:center; margin-top:18px; }
+  .linkrow a{ color:var(--muted); font-size:13px; text-decoration:none; cursor:pointer; }
+  .linkrow a:hover{ color:var(--text); text-decoration:underline; }
+
+  /* 강의 / 절 버튼 그리드 */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+  .tile{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:20px 18px; text-align:left; color:var(--text);
+    transition:transform .12s, border-color .12s, background .12s;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .tile:hover{ transform:translateY(-2px); border-color:var(--accent); background:var(--panel2); }
+  .tile .t-title{ font-size:16px; font-weight:700; }
+  .tile .t-sub{ font-size:13px; color:var(--muted); }
+  .section-title{ font-size:20px; font-weight:700; margin:4px 0 18px; }
+
+  /* PDF 뷰어 */
+  #viewer-stage{ display:none; }
+  .viewer-bar{
+    position:sticky; top:0; z-index:40; background:var(--panel);
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:12px; padding:10px 16px;
+    flex-wrap:wrap;
+  }
+  .viewer-bar .vtitle{ font-weight:700; font-size:15px; }
+  .viewer-bar .spacer{ flex:1; }
+  .viewer-bar .zoom{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:13px; }
+  .viewer-bar .zoom button{
+    background:var(--panel2); color:var(--text); border:1px solid var(--border);
+    width:30px; height:30px; border-radius:8px; font-size:16px; line-height:1;
+  }
+  #pdf-pages{
+    padding:24px 12px 80px; display:flex; flex-direction:column; align-items:center; gap:16px;
+    /* 텍스트 선택 차단 */
+    user-select:none; -webkit-user-select:none; -moz-user-select:none;
+  }
+  #pdf-pages canvas{
+    max-width:100%; box-shadow:0 6px 24px rgba(0,0,0,.4); border-radius:4px;
+    background:#fff; pointer-events:none;
+  }
+  .loading{ color:var(--muted); padding:40px; text-align:center; }
+  .hidden{ display:none !important; }
+
+  .note{
+    background:var(--panel2); border:1px solid var(--border);
+    border-radius:10px; padding:12px 14px; font-size:13px; color:var(--muted);
+    line-height:1.6; margin-bottom:18px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== 로그인 화면 ===================== -->
+<div id="login-stage" class="center-stage">
+  <div class="card">
+    <h2>대학 수학 강의</h2>
+    <p class="sub">강의를 보려면 비밀번호를 입력하세요.</p>
+    <form id="login-form">
+      <div class="field">
+        <label for="login-pw">비밀번호</label>
+        <input type="password" id="login-pw" autocomplete="off" placeholder="비밀번호 입력" />
+      </div>
+      <div class="errmsg" id="login-err"></div>
+      <button type="submit" class="btn full">입장하기</button>
+    </form>
+    <div class="linkrow"><a id="go-admin">관리자 설정</a></div>
+  </div>
+</div>
+
+<!-- ===================== 관리자 화면 ===================== -->
+<div id="admin-stage" class="center-stage hidden">
+  <div class="card">
+    <h2>관리자 설정</h2>
+    <p class="sub">비밀번호를 변경합니다. 변경된 비밀번호는 이 브라우저에 저장됩니다.</p>
+
+    <!-- 관리자 인증 -->
+    <div id="admin-auth">
+      <div class="field">
+        <label for="admin-current">현재 비밀번호 확인</label>
+        <input type="password" id="admin-current" autocomplete="off" placeholder="현재 비밀번호" />
+      </div>
+      <div class="errmsg" id="admin-auth-err"></div>
+      <button type="button" class="btn full" id="admin-auth-btn">확인</button>
+    </div>
+
+    <!-- 비밀번호 변경 -->
+    <div id="admin-change" class="hidden">
+      <div class="field">
+        <label for="admin-new">새 비밀번호</label>
+        <input type="password" id="admin-new" autocomplete="off" placeholder="새 비밀번호" />
+      </div>
+      <div class="field">
+        <label for="admin-new2">새 비밀번호 확인</label>
+        <input type="password" id="admin-new2" autocomplete="off" placeholder="새 비밀번호 다시 입력" />
+      </div>
+      <div class="errmsg" id="admin-change-err"></div>
+      <div class="okmsg" id="admin-change-ok"></div>
+      <button type="button" class="btn full" id="admin-save-btn">비밀번호 저장</button>
+      <div style="margin-top:12px;">
+        <button type="button" class="btn ghost full" id="admin-reset-btn">코드 기본 비밀번호로 되돌리기</button>
+      </div>
+    </div>
+
+    <div class="linkrow"><a id="back-login">← 로그인으로 돌아가기</a></div>
+  </div>
+</div>
+
+<!-- ===================== 메인(강의 목록 / 절 목록) ===================== -->
+<div id="main-stage" class="hidden">
+  <header class="topbar">
+    <h1 id="brand">대학 수학 강의</h1>
+    <div class="spacer"></div>
+    <button class="btn ghost small" id="logout-btn">로그아웃</button>
+  </header>
+  <div class="wrap">
+    <div class="crumbs" id="crumbs"></div>
+    <div id="course-list"></div>
+    <div id="section-list" class="hidden"></div>
+  </div>
+</div>
+
+<!-- ===================== PDF 뷰어 ===================== -->
+<div id="viewer-stage">
+  <div class="viewer-bar">
+    <button class="btn ghost small" id="viewer-back">← 목록</button>
+    <span class="vtitle" id="viewer-title"></span>
+    <div class="spacer"></div>
+    <div class="zoom">
+      <button id="zoom-out" title="축소">−</button>
+      <span id="zoom-label">100%</span>
+      <button id="zoom-in" title="확대">+</button>
+    </div>
+  </div>
+  <div id="pdf-pages"><div class="loading">불러오는 중…</div></div>
+</div>
+
+<script>
+/* ============================================================
+   ▼▼▼  관리자 설정 영역  ▼▼▼
+   여기만 수정하면 비밀번호와 강의/절/PDF를 바꿀 수 있습니다.
+   ============================================================ */
+const CONFIG = {
+
+  // 1) 사이트 제목
+  siteTitle: "대학 수학 강의",
+
+  // 2) 기본 비밀번호  ← 여기를 원하는 비밀번호로 바꾸세요.
+  //    (관리자 페이지에서 바꾸면 그 값이 우선 적용되며, 아래는 기본값입니다.)
+  defaultPassword: "math1234",
+
+  // 3) 강의 목록.
+  //    - 강의를 추가하려면 courses 배열에 { } 블록을 하나 더 넣으세요.
+  //    - 각 절(section)의 file 값은 이 HTML 파일이 있는 폴더 기준 PDF 경로입니다.
+  //      예: pdfs/calc1/1-1.pdf  → 같은 폴더 안 pdfs/calc1/ 폴더의 1-1.pdf
+  courses: [
+    {
+      id: "calc1",
+      title: "스튜어트 미분적분학 1",
+      subtitle: "Stewart Calculus — 단일변수",
+      sections: [
+        { title: "1.1 함수와 그 표현",   file: "pdfs/calc1/1.1 (eng) Functions and Their Representations.pdf" },
+        { title: "1.2 필수 함수들의 분류", file: "pdfs/calc1/1.2 (eng) A Catalog of Essential Functions.pdf" }
+        // ── 절을 추가하려면 위 } 뒤에 콤마(,)를 찍고 같은 형식으로 추가하세요. 예:
+        // ,{ title: "1.3 기존 함수로 새 함수 만들기", file: "pdfs/calc1/1.3 ....pdf" }
+      ]
+    }
+
+    // ── 강의 추가 예시 (필요하면 위 } 뒤에 콤마 찍고 아래처럼 추가) ──
+    // ,{
+    //   id: "calc2",
+    //   title: "스튜어트 미분적분학 2",
+    //   subtitle: "Stewart Calculus — 급수·다변수",
+    //   sections: [
+    //     { title: "11장. 무한수열과 급수", file: "pdfs/calc2/ch11.pdf" }
+    //   ]
+    // }
+  ]
+};
+/* ============================================================
+   ▲▲▲  관리자 설정 영역 끝  ▲▲▲
+   아래 코드는 수정하지 않아도 됩니다.
+   ============================================================ */
+
+
+/* ---------- PDF.js worker 설정 ---------- */
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+/* ---------- 비밀번호 관리 ---------- */
+const PW_KEY = "collegeMath_password";
+function getPassword(){
+  return localStorage.getItem(PW_KEY) || CONFIG.defaultPassword;
+}
+function setPassword(pw){ localStorage.setItem(PW_KEY, pw); }
+function resetPassword(){ localStorage.removeItem(PW_KEY); }
+
+/* ---------- 화면 요소 ---------- */
+const loginStage   = document.getElementById("login-stage");
+const adminStage   = document.getElementById("admin-stage");
+const mainStage    = document.getElementById("main-stage");
+const viewerStage  = document.getElementById("viewer-stage");
+const courseList   = document.getElementById("course-list");
+const sectionList  = document.getElementById("section-list");
+const crumbs       = document.getElementById("crumbs");
+
+document.getElementById("brand").textContent = CONFIG.siteTitle;
+document.title = CONFIG.siteTitle;
+
+function show(stage){
+  [loginStage, adminStage, mainStage].forEach(s => s.classList.add("hidden"));
+  viewerStage.style.display = "none";
+  if(stage === "viewer"){ viewerStage.style.display = "block"; }
+  else { ({login:loginStage, admin:adminStage, main:mainStage})[stage].classList.remove("hidden"); }
+}
+
+/* ---------- 로그인 ---------- */
+const loginForm = document.getElementById("login-form");
+const loginPw   = document.getElementById("login-pw");
+const loginErr  = document.getElementById("login-err");
+
+loginForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if(loginPw.value === getPassword()){
+    loginErr.textContent = "";
+    loginPw.value = "";
+    enterSite();
+  } else {
+    loginErr.textContent = "비밀번호가 올바르지 않습니다.";
+  }
+});
+
+document.getElementById("go-admin").addEventListener("click", () => {
+  resetAdminUI();
+  show("admin");
+});
+
+/* ---------- 관리자 ---------- */
+const adminAuth     = document.getElementById("admin-auth");
+const adminChange   = document.getElementById("admin-change");
+const adminCurrent  = document.getElementById("admin-current");
+const adminAuthErr  = document.getElementById("admin-auth-err");
+const adminNew      = document.getElementById("admin-new");
+const adminNew2     = document.getElementById("admin-new2");
+const adminChangeErr= document.getElementById("admin-change-err");
+const adminChangeOk = document.getElementById("admin-change-ok");
+
+function resetAdminUI(){
+  adminAuth.classList.remove("hidden");
+  adminChange.classList.add("hidden");
+  adminCurrent.value = ""; adminNew.value = ""; adminNew2.value = "";
+  adminAuthErr.textContent = ""; adminChangeErr.textContent = ""; adminChangeOk.textContent = "";
+}
+
+document.getElementById("admin-auth-btn").addEventListener("click", () => {
+  if(adminCurrent.value === getPassword()){
+    adminAuth.classList.add("hidden");
+    adminChange.classList.remove("hidden");
+    adminAuthErr.textContent = "";
+  } else {
+    adminAuthErr.textContent = "현재 비밀번호가 올바르지 않습니다.";
+  }
+});
+
+document.getElementById("admin-save-btn").addEventListener("click", () => {
+  adminChangeErr.textContent = ""; adminChangeOk.textContent = "";
+  if(adminNew.value.length < 4){
+    adminChangeErr.textContent = "비밀번호는 4자 이상으로 설정하세요."; return;
+  }
+  if(adminNew.value !== adminNew2.value){
+    adminChangeErr.textContent = "두 비밀번호가 일치하지 않습니다."; return;
+  }
+  setPassword(adminNew.value);
+  adminChangeOk.textContent = "비밀번호가 변경되었습니다.";
+  adminNew.value = ""; adminNew2.value = "";
+});
+
+document.getElementById("admin-reset-btn").addEventListener("click", () => {
+  resetPassword();
+  adminChangeOk.textContent = "코드의 기본 비밀번호로 되돌렸습니다.";
+  adminChangeErr.textContent = "";
+});
+
+document.getElementById("back-login").addEventListener("click", () => show("login"));
+
+/* ---------- 사이트 입장 / 강의 목록 ---------- */
+function enterSite(){
+  show("main");
+  renderCourses();
+}
+
+document.getElementById("logout-btn").addEventListener("click", () => show("login"));
+
+function renderCourses(){
+  sectionList.classList.add("hidden");
+  courseList.classList.remove("hidden");
+  crumbs.innerHTML = "강의 목록";
+  courseList.innerHTML = '<div class="grid"></div>';
+  const grid = courseList.querySelector(".grid");
+  CONFIG.courses.forEach(course => {
+    const b = document.createElement("button");
+    b.className = "tile";
+    b.innerHTML = `<span class="t-title">${escapeHtml(course.title)}</span>
+                   <span class="t-sub">${escapeHtml(course.subtitle || "")} · ${course.sections.length}개 강의</span>`;
+    b.addEventListener("click", () => renderSections(course));
+    grid.appendChild(b);
+  });
+}
+
+function renderSections(course){
+  courseList.classList.add("hidden");
+  sectionList.classList.remove("hidden");
+  crumbs.innerHTML = `<span id="cb-home">강의 목록</span><span class="sep">›</span>${escapeHtml(course.title)}`;
+  document.getElementById("cb-home").addEventListener("click", renderCourses);
+
+  sectionList.innerHTML = `<div class="section-title">${escapeHtml(course.title)}</div><div class="grid"></div>`;
+  const grid = sectionList.querySelector(".grid");
+  course.sections.forEach(sec => {
+    const b = document.createElement("button");
+    b.className = "tile";
+    b.innerHTML = `<span class="t-title">${escapeHtml(sec.title)}</span>
+                   <span class="t-sub">슬라이드 보기 →</span>`;
+    b.addEventListener("click", () => openViewer(course, sec));
+    grid.appendChild(b);
+  });
+}
+
+/* ---------- PDF 뷰어 (보기 전용) ---------- */
+const pdfPages    = document.getElementById("pdf-pages");
+const viewerTitle = document.getElementById("viewer-title");
+const zoomLabel   = document.getElementById("zoom-label");
+let currentPdf = null;
+let currentScale = 1.0;
+let currentContext = null; // { course, sec }
+
+document.getElementById("viewer-back").addEventListener("click", () => {
+  currentPdf = null;
+  pdfPages.innerHTML = "";
+  show("main");
+});
+
+document.getElementById("zoom-in").addEventListener("click", () => { currentScale = Math.min(currentScale + 0.2, 3); rerender(); });
+document.getElementById("zoom-out").addEventListener("click", () => { currentScale = Math.max(currentScale - 0.2, 0.4); rerender(); });
+
+async function openViewer(course, sec){
+  currentContext = { course, sec };
+  viewerTitle.textContent = sec.title;
+  currentScale = 1.0;
+  zoomLabel.textContent = "100%";
+  show("viewer");
+  pdfPages.innerHTML = '<div class="loading">불러오는 중…</div>';
+  try{
+    const loadingTask = pdfjsLib.getDocument(encodeURI(sec.file));
+    currentPdf = await loadingTask.promise;
+    await rerender();
+  }catch(err){
+    pdfPages.innerHTML = `<div class="loading">
+      PDF를 불러올 수 없습니다.<br><br>
+      파일 경로를 확인하세요: <b>${escapeHtml(sec.file)}</b><br>
+      <span style="font-size:12px;">(이 HTML 파일과 같은 위치에 해당 PDF가 있어야 합니다)</span>
+    </div>`;
+    console.error(err);
+  }
+}
+
+async function rerender(){
+  if(!currentPdf) return;
+  zoomLabel.textContent = Math.round(currentScale * 100) + "%";
+  pdfPages.innerHTML = "";
+  // 화면 폭에 맞춘 기준 배율 계산
+  const containerWidth = Math.min(pdfPages.clientWidth - 24, 900);
+  for(let n = 1; n <= currentPdf.numPages; n++){
+    const page = await currentPdf.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const fitScale = containerWidth / base.width;
+    const viewport = page.getViewport({ scale: fitScale * currentScale });
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = viewport.width * dpr;
+    canvas.height = viewport.height * dpr;
+    canvas.style.width  = viewport.width + "px";
+    canvas.style.height = viewport.height + "px";
+    ctx.scale(dpr, dpr);
+    pdfPages.appendChild(canvas);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+  }
+}
+
+/* 창 크기 변경 시 다시 렌더 */
+let resizeTimer;
+window.addEventListener("resize", () => {
+  if(viewerStage.style.display === "block" && currentPdf){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(rerender, 250);
+  }
+});
+
+/* ---------- 다운로드/복사 방지(소프트) ---------- */
+// 우클릭 메뉴 차단
+document.addEventListener("contextmenu", (e) => {
+  if(viewerStage.style.display === "block") e.preventDefault();
+});
+// 저장/인쇄 단축키 차단
+document.addEventListener("keydown", (e) => {
+  if(viewerStage.style.display === "block"){
+    const k = e.key.toLowerCase();
+    if((e.ctrlKey || e.metaKey) && (k === "s" || k === "p")){ e.preventDefault(); }
+  }
+});
+// 이미지 드래그 차단
+document.addEventListener("dragstart", (e) => {
+  if(viewerStage.style.display === "block") e.preventDefault();
+});
+
+/* ---------- 유틸 ---------- */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+  }[c]));
+}
+
+/* ---------- 시작 ---------- */
+show("login");
+</script>
+</body>
+</html>
